@@ -11,7 +11,7 @@ class RfSwitch_Brennenstuhl {
     void end();
     void loop();
 
-    void send(unsigned int code, unsigned int repeat = 1, unsigned int preDelay = 0);
+    void send(unsigned int code, unsigned int repeat = 4, unsigned int preDelay = 0);
     bool getReceivedValue(unsigned int* value);
 
   public:

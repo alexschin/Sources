@@ -1,4 +1,3 @@
-
 #if not defined(__RfSwitch_Brennenstuhl_cpp__)
 #define __RfSwitch_Brennenstuhl_cpp__
 
@@ -27,6 +26,10 @@ static inline int timings_pop() {
   return timings[timings_position];
 }
 
+static inline int timings_clear() {
+  timings_position = 0;
+  memset((void*)timings, 0, sizeof(timings));
+}
 
 
 #define RCV_STATE_DISABLED  0x01
@@ -69,8 +72,7 @@ static bool rcv_getReceivedValue(unsigned int* value) {
   }
   
   *value = code;  
-  // timings_clear();
-  timings_push(-1);
+  timings_clear();
   
   rcv_state &= ~RCV_STATE_CHECKCODE;
   
@@ -205,13 +207,14 @@ static unsigned long _last_millis = 0;
 
 void RfSwitch_Brennenstuhl::loop() {
   if (_last_millis != millis()) {
-
+    
     if (_send_buffer[0].repeat != 0) {
       if (_send_buffer[0].preDelay == 0) {
         _send(_send_buffer[0].code);
   
-        if (--_send_buffer[0].repeat == 0) {
-          for (uint8_t i = 0; i < SEND_BUFFER_SIZE; i++) {
+        _send_buffer[0].repeat--;
+        if (_send_buffer[0].repeat == 0) {
+          for (uint8_t i = 1; i < SEND_BUFFER_SIZE; i++) {
             _send_buffer[i - 1] = _send_buffer[i];
             if (_send_buffer[i].repeat == 0) break;
             _send_buffer[i].repeat = 0;
