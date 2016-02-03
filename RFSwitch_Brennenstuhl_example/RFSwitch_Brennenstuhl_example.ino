@@ -37,7 +37,7 @@ void loop() {
       }
     }
     
-    _last_code_delay = 200;
+    _last_code_delay = 250;
   }
   //-*/
 
@@ -52,18 +52,18 @@ void loop() {
         case 0b111100001010:
         if (_last_code_repeat >= 1) {
           Serial.println(F("ON"));
-          rfSwitch.send(0b111100010010, 10, 10);
-          rfSwitch.send(0b111100100010, 10, 10);
-          rfSwitch.send(0b111101000010, 10, 10);
+          rfSwitch.send(0b111100010010, 10, 1);
+          rfSwitch.send(0b111100100010, 10, 1);
+          rfSwitch.send(0b111101000010, 10, 0);
         } break;
         
         case 0b101110001001:
         case 0b111100001001:
         if (_last_code_repeat >= 1) {
           Serial.println(F("OFF"));
-          rfSwitch.send(0b111100010001, 10, 10);
-          rfSwitch.send(0b111100100001, 10, 10);
-          rfSwitch.send(0b111101000001, 10, 10);
+          rfSwitch.send(0b111100010001, 10, 1);
+          rfSwitch.send(0b111100100001, 10, 1);
+          rfSwitch.send(0b111101000001, 10, 1);
         } break;
       }
 

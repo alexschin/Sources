@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include "RfSwitch_Brennenstuhl.h"
 
-#define PULSE_US       312
+#define PULSE_US       300
 #define PULSE_US_DELTA (PULSE_US / 4)
 
 
@@ -12,7 +12,7 @@ static int8_t _pinSND = RfSwitch_Brennenstuhl::NO_PIN;
 static int8_t _pinRCV = RfSwitch_Brennenstuhl::NO_PIN;
 
 
-#define TIMINGS_MAX 67
+#define TIMINGS_MAX 50
 static volatile int16_t timings[TIMINGS_MAX];
 static volatile int8_t  timings_position = 0;
 
@@ -46,39 +46,6 @@ static inline bool isPulseLong(uint16_t us) {
   return (us >= 3 * (PULSE_US - PULSE_US_DELTA)) && (us <= 3 * (PULSE_US + PULSE_US_DELTA));
 }
 
-static bool rcv_getReceivedValue(unsigned int* value) {
-  if (!(rcv_state & RCV_STATE_CHECKCODE)) return false;
-  
-  uint16_t code = 0;
-  for (int i = 12; i > 0; i--) {
-    int p3 = timings_pop();
-    int p2 = timings_pop();
-    int p1 = timings_pop();
-    int p0 = timings_pop();
-
-    code >>= 1;
-
-    if (isPulseShort(p0) && isPulseLong(p1)) {
-      if (isPulseShort(p2)) {
-        code |= 2048;
-      } else if (!isPulseLong(p2)) {
-        code = 0;
-        break;
-      }
-    } else {
-      code = 0;
-      break;
-    }
-  }
-  
-  *value = code;  
-  timings_clear();
-  
-  rcv_state &= ~RCV_STATE_CHECKCODE;
-  
-  return !!code;
-}
-
 static void rcv_handleInterrupt() {
   static volatile uint32_t lastMicros = 0;
 
@@ -86,7 +53,7 @@ static void rcv_handleInterrupt() {
     uint32_t nowMicros = micros();
     uint32_t duration = nowMicros - lastMicros;
 
-    if (duration > 16 * PULSE_US) {
+    if (duration > 5000) {
       if (isPulseShort(timings_pop())) {
         rcv_state |= RCV_STATE_CHECKCODE;
       }
@@ -112,6 +79,41 @@ static void rcv_disable() {
   }
 }
 
+
+static bool rcv_getReceivedValue(unsigned int* value) {
+  if (!(rcv_state & RCV_STATE_CHECKCODE)) return false;
+
+  rcv_disable();
+  unsigned int code = 0;
+  
+  for (unsigned char i = 0; i < 12; i++) {
+    int p3 = timings_pop();
+    int p2 = timings_pop();
+    int p1 = timings_pop();
+    int p0 = timings_pop();
+
+    code >>= 1;
+    if (isPulseShort(p0) && isPulseLong(p1)) {
+      if (isPulseShort(p2)) {
+        code |= 2048;
+      } else if (!isPulseLong(p2)) {
+        code = 0;
+        break;
+      }
+    } else {
+      code = 0;
+      break;
+    }
+  }
+  
+  *value = code;  
+  timings_push(0);
+  
+  rcv_state &= ~RCV_STATE_CHECKCODE;
+  rcv_enable();
+
+  return code != 0;
+}
 
 
 
