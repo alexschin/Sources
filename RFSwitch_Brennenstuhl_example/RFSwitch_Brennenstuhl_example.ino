@@ -1,5 +1,6 @@
-/* 
- *  
+
+/* Brennenstuhl RF-Switch Example
+ *
  */
 
 #include "RfSwitch_Brennenstuhl.h"
