@@ -1,4 +1,3 @@
-
 /* Brennenstuhl RF-Switch Example
  *
  */
