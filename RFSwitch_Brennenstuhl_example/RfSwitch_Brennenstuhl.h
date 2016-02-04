@@ -12,7 +12,7 @@ class RfSwitch_Brennenstuhl {
     void loop();
 
     void send(unsigned int code, unsigned int repeat = 4, unsigned int preDelay = 0);
-    bool getReceivedValue(unsigned int* value);
+    bool getReceivedValue(unsigned int* code);
 
   public:
     static const uint8_t NO_PIN = 0xff;

@@ -246,8 +246,44 @@ void RfSwitch_Brennenstuhl::send(unsigned int code, unsigned int repeat, unsigne
 }
 
 
-bool RfSwitch_Brennenstuhl::getReceivedValue(unsigned int* value) {
-  return rcv_getReceivedValue(value);
+bool RfSwitch_Brennenstuhl::getReceivedValue(unsigned int* code) {
+  // return rcv_getReceivedValue(value);
+
+  static unsigned int  _last_code        = 0;
+  static unsigned int  _last_code_repeat = 0;
+  static unsigned int  _last_code_delay  = 0;
+  static unsigned long _last_millis      = 0;
+
+  unsigned int _code;
+  
+  if (rcv_getReceivedValue(&_code)) {
+    if (_code & 0b000001111100) {
+      if (_last_code != _code) {
+        _last_code = _code;
+        _last_code_repeat = 1;
+      } else {
+        _last_code_repeat += 1;
+      }
+    }
+    _last_code_delay = 150;
+  }
+
+
+  if (_last_millis != millis()) {
+    _last_millis = millis();
+    
+    if (_last_code_delay != 0 && (-- _last_code_delay) == 0) {
+      if (_last_code != 0 && _last_code_repeat > 1) {
+        *code = _last_code;  
+        _last_code = 0;
+        return true;
+      } else {
+        _last_code = 0;
+      }
+    }
+  }
+  
+  return false;
 }
 
 #endif

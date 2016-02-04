@@ -23,12 +23,35 @@ void loop() {
   static unsigned int _last_code_repeat = 0;
   static unsigned int _last_code_delay = 0;
 
-  /*--*/
   unsigned int code;
+
+  if (rfSwitch.getReceivedValue(&code)) {
+    Serial.print(F("0b")); Serial.print(code, BIN); Serial.println();
+
+    switch (code) {
+      case 0b101110001010:
+      case 0b111100001010: {
+        Serial.println(F("ON"));
+        rfSwitch.send(0b111100010010, 10, 1);
+        rfSwitch.send(0b111100100010, 10, 1);
+        rfSwitch.send(0b111101000010, 10, 0);
+      } break;
+      
+      case 0b101110001001:
+      case 0b111100001001: {
+        Serial.println(F("OFF"));
+        rfSwitch.send(0b111100010001, 10, 1);
+        rfSwitch.send(0b111100100001, 10, 1);
+        rfSwitch.send(0b111101000001, 10, 1);
+      } break;
+    }
+  }
+
+  /*--*
   if (rfSwitch.getReceivedValue(&code)) {
     // Serial.println(code, BIN);
 
-    if (code & 0b1111100) {
+    if (code & 0b000001111100) {
       if (_last_code != code) {
         _last_code = code;
         _last_code_repeat = 1;
@@ -37,7 +60,7 @@ void loop() {
       }
     }
     
-    _last_code_delay = 250;
+    _last_code_delay = 150;
   }
   //-*/
 
