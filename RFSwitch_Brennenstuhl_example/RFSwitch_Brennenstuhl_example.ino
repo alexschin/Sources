@@ -7,7 +7,17 @@
 #define RF_SWITCH_ON(g, s)  (((g & 0b11111) << 7) | ((s & 0b11111) << 2) | 0b01)
 #define RF_SWITCH_OFF(g, s) (((g & 0b11111) << 7) | ((s & 0b11111) << 2) | 0b10)
 
+
+#ifndef D3
+#define D3 3
+#endif
+
+#ifndef D4
+#define D4 4
+#endif
+
 RfSwitch_Brennenstuhl rfSwitch(D4, D3);
+
 
 void setup() {
   Serial.begin(115200); delay(100);
