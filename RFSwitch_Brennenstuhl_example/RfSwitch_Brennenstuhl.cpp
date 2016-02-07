@@ -4,14 +4,26 @@
 #include <Arduino.h>
 #include "RfSwitch_Brennenstuhl.h"
 
-#define PULSE_US       300
-#define PULSE_US_DELTA (PULSE_US / 4)
 
-
+// *** PINS ***
 static int8_t _pinSND = RfSwitch_Brennenstuhl::NO_PIN;
 static int8_t _pinRCV = RfSwitch_Brennenstuhl::NO_PIN;
 
 
+// *** PULSE WIDTH ***
+#define PULSE_WIDTH_US       300
+#define PULSE_WIDTH_US_DELTA (PULSE_WIDTH_US / 4)
+
+static inline bool isPulseShort(uint16_t us) {
+  return (us >= 1 * (PULSE_WIDTH_US - PULSE_WIDTH_US_DELTA)) && (us <= 1 * (PULSE_WIDTH_US + PULSE_WIDTH_US_DELTA));
+}
+
+static inline bool isPulseLong(uint16_t us) {
+  return (us >= 3 * (PULSE_WIDTH_US - PULSE_WIDTH_US_DELTA)) && (us <= 3 * (PULSE_WIDTH_US + PULSE_WIDTH_US_DELTA));
+}
+
+
+// *** TIMINGS BUFFER ***
 #define TIMINGS_MAX 50
 static volatile int16_t timings[TIMINGS_MAX];
 static volatile int8_t  timings_position = 0;
@@ -32,30 +44,39 @@ static inline int timings_clear() {
 }
 
 
-#define RCV_STATE_DISABLED  0x01
-#define RCV_STATE_CHECKCODE 0x02
+// *** SEND BUFFER ***
+#define SEND_BUFFER_SIZE  5
+static struct SEND_BUFFER_ITEM {
+  unsigned int code;
+  unsigned int repeat;
+  unsigned int preDelay;
+} _send_buffer[SEND_BUFFER_SIZE];
 
-static volatile uint16_t rcv_code  = 0;
-static volatile uint8_t  rcv_state = 0;
 
-static inline bool isPulseShort(uint16_t us) {
-  return (us >= 1 * (PULSE_US - PULSE_US_DELTA)) && (us <= 1 * (PULSE_US + PULSE_US_DELTA));
-}
+// *** RECIEVE BUFFER ***
+#define RECV_BUFFER_SIZE 5
+static struct RECV_BUFFER_ITEM {
+  unsigned int code;
+  unsigned int repeat;
+} _recv_buffer[RECV_BUFFER_SIZE];
 
-static inline bool isPulseLong(uint16_t us) {
-  return (us >= 3 * (PULSE_US - PULSE_US_DELTA)) && (us <= 3 * (PULSE_US + PULSE_US_DELTA));
-}
+
+#define RECV_STATE_DISABLED  0x01
+#define RECV_STATE_NEWCODE   0x02
+
+static volatile uint16_t _rcv_newcode = 0;
+static volatile uint8_t  _rcv_state   = 0;
 
 static void rcv_handleInterrupt() {
   static volatile uint32_t lastMicros = 0;
 
-  if (!rcv_state) {
+  if (!_rcv_state) {
     uint32_t nowMicros = micros();
     uint32_t duration = nowMicros - lastMicros;
 
     if (duration > 5000) {
       if (isPulseShort(timings_pop())) {
-        rcv_state |= RCV_STATE_CHECKCODE;
+        _rcv_state |= RECV_STATE_NEWCODE;
       }
     } else {
       timings_push(duration);
@@ -69,11 +90,11 @@ static void rcv_enable() {
   if (_pinRCV != RfSwitch_Brennenstuhl::NO_PIN) {
     attachInterrupt(digitalPinToInterrupt(_pinRCV), rcv_handleInterrupt, CHANGE);
   }
-  rcv_state &= ~RCV_STATE_DISABLED;
+  _rcv_state &= ~RECV_STATE_DISABLED;
 }
 
 static void rcv_disable() {
-  rcv_state |= RCV_STATE_DISABLED;
+  _rcv_state |= RECV_STATE_DISABLED;
   if (_pinRCV != RfSwitch_Brennenstuhl::NO_PIN) {
     detachInterrupt(digitalPinToInterrupt(_pinRCV));
   }
@@ -81,7 +102,7 @@ static void rcv_disable() {
 
 
 static bool rcv_getReceivedValue(unsigned int* value) {
-  if (!(rcv_state & RCV_STATE_CHECKCODE)) return false;
+  if (!(_rcv_state & RECV_STATE_NEWCODE)) return false;
 
   rcv_disable();
   unsigned int code = 0;
@@ -109,7 +130,7 @@ static bool rcv_getReceivedValue(unsigned int* value) {
   *value = code;  
   timings_push(0);
   
-  rcv_state &= ~RCV_STATE_CHECKCODE;
+  _rcv_state &= ~RECV_STATE_NEWCODE;
   rcv_enable();
 
   return code != 0;
@@ -117,33 +138,25 @@ static bool rcv_getReceivedValue(unsigned int* value) {
 
 
 
-#define SEND_BUFFER_SIZE  10
-static struct {
-  unsigned int repeat;
-  unsigned int code;
-  unsigned int preDelay;
-} _send_buffer[SEND_BUFFER_SIZE];
-
-
 inline static void _send_on() {
   digitalWrite(_pinSND, HIGH);
-  delayMicroseconds(PULSE_US * 1);
+  delayMicroseconds(PULSE_WIDTH_US * 1);
   digitalWrite(_pinSND, LOW);
-  delayMicroseconds(PULSE_US * 3);
+  delayMicroseconds(PULSE_WIDTH_US * 3);
 }
 
 inline static void _send_off() {
   digitalWrite(_pinSND, HIGH);
-  delayMicroseconds(PULSE_US * 3);
+  delayMicroseconds(PULSE_WIDTH_US * 3);
   digitalWrite(_pinSND, LOW);
-  delayMicroseconds(PULSE_US * 1);
+  delayMicroseconds(PULSE_WIDTH_US * 1);
 }
 
 inline static void _send_sync() {
   digitalWrite(_pinSND, HIGH);
-  delayMicroseconds(PULSE_US * 1);
+  delayMicroseconds(PULSE_WIDTH_US * 1);
   digitalWrite(_pinSND, LOW);
-  delayMicroseconds(PULSE_US * 31);
+  delayMicroseconds(PULSE_WIDTH_US * 31);
 }
 
 static void _send(uint16_t code) {
@@ -173,6 +186,7 @@ RfSwitch_Brennenstuhl::RfSwitch_Brennenstuhl(int pinSND, int pinRCV) {
 }
 
 void RfSwitch_Brennenstuhl::begin() {
+  memset(_recv_buffer, 0, sizeof(_recv_buffer));
   memset(_send_buffer, 0, sizeof(_send_buffer));
 
   timings_position = 0;
@@ -205,84 +219,110 @@ void RfSwitch_Brennenstuhl::end() {
   }
 }
 
-static unsigned long _last_millis = 0;
+
+static uint16_t _last_recv_code = 0;
+static uint16_t _last_recv_code_repeat = 0;
+static uint16_t _last_recv_code_delay  = 0;
+
 
 void RfSwitch_Brennenstuhl::loop() {
-  if (_last_millis != millis()) {
-    
-    if (_send_buffer[0].repeat != 0) {
-      if (_send_buffer[0].preDelay == 0) {
+  static unsigned long _last_millis = 0;
+
+  if (_send_buffer[0].repeat != 0) {
+    if (_last_millis != millis()) {
+      
+      if (_send_buffer[0].preDelay != 0) {
+        _send_buffer[0].preDelay--;
+      } else {
         _send(_send_buffer[0].code);
   
-        _send_buffer[0].repeat--;
-        if (_send_buffer[0].repeat == 0) {
+        if ((-- _send_buffer[0].repeat) == 0) {            
           for (uint8_t i = 1; i < SEND_BUFFER_SIZE; i++) {
             _send_buffer[i - 1] = _send_buffer[i];
             if (_send_buffer[i].repeat == 0) break;
             _send_buffer[i].repeat = 0;
           }        
         }
-      } else {
-        _send_buffer[0].preDelay--;
       }
+
+      _last_millis = millis();
     }
-    
-    _last_millis = millis();
+    return;
   }
-}
 
 
-void RfSwitch_Brennenstuhl::send(unsigned int code, unsigned int repeat, unsigned int preDelay) {
-  for (uint8_t i = 0; i < SEND_BUFFER_SIZE; i++) {
-    if (_send_buffer[i].code == code)
-      break;
-    if (_send_buffer[i].repeat == 0) {
-      _send_buffer[i].code = code;
-      _send_buffer[i].repeat = repeat;
-      _send_buffer[i].preDelay = preDelay;
-      break;
-    }
-  }
-}
-
-
-bool RfSwitch_Brennenstuhl::getReceivedValue(unsigned int* code) {
-  // return rcv_getReceivedValue(value);
-
-  static unsigned int  _last_code        = 0;
-  static unsigned int  _last_code_repeat = 0;
-  static unsigned int  _last_code_delay  = 0;
-  static unsigned long _last_millis      = 0;
-
-  unsigned int _code;
+  unsigned int _recv_code;
   
-  if (rcv_getReceivedValue(&_code)) {
-    if (_code & 0b000001111100) {
-      if (_last_code != _code) {
-        _last_code = _code;
-        _last_code_repeat = 1;
+  if (rcv_getReceivedValue(&_recv_code)) {
+    
+    if ((_recv_code & 0b111110000000) != 0 && (_recv_code & 0b000001111100) != 0 && (_recv_code & 0b000000000011) != 0) {
+      if (_last_recv_code != _recv_code) {
+        _last_recv_code = _recv_code;
+        _last_recv_code_repeat = 1;
       } else {
-        _last_code_repeat += 1;
+        _last_recv_code_repeat += 1;
       }
     }
-    _last_code_delay = 150;
-  }
-
-
+    _last_recv_code_delay = 200;
+    return;
+  } 
+  
   if (_last_millis != millis()) {
-    _last_millis = millis();
-    
-    if (_last_code_delay != 0 && (-- _last_code_delay) == 0) {
-      if (_last_code != 0 && _last_code_repeat > 1) {
-        *code = _last_code;  
-        _last_code = 0;
-        return true;
-      } else {
-        _last_code = 0;
+
+    if (_last_recv_code_delay != 0 && (-- _last_recv_code_delay) == 0) {
+      if (_last_recv_code != 0 && _last_recv_code_repeat >= 1) {
+        for (uint8_t i = 0; i < RECV_BUFFER_SIZE; i++) {
+          struct RECV_BUFFER_ITEM* itm = &(_recv_buffer[i]);
+
+          if (itm->code == 0) {
+            itm->code   = _last_recv_code;
+            itm->repeat = _last_recv_code_repeat;
+            break;
+          }
+        }
+        
+        _last_recv_code = _last_recv_code_repeat = 0;
       }
+    }
+    
+    _last_millis = millis();
+    return;
+  }
+}
+
+
+bool RfSwitch_Brennenstuhl::send(unsigned int code, unsigned int repeat, unsigned int preDelay) {
+  for (uint8_t i = 0; i < SEND_BUFFER_SIZE; i++) {
+    struct SEND_BUFFER_ITEM* itm = &(_send_buffer[i]);
+    
+    if (itm->code == code)
+      return true;
+    else if (itm->repeat == 0) {
+      itm->code     = code;
+      itm->repeat   = repeat;
+      itm->preDelay = preDelay;
+      return true;
     }
   }
   
+  return false;
+}
+
+
+bool RfSwitch_Brennenstuhl::recv(unsigned int* code, unsigned int* repeat) {
+  if (_recv_buffer[0].code != 0) {
+    *code = _recv_buffer[0].code;
+    if (repeat != NULL) *repeat = _recv_buffer[0].repeat;
+
+    for (uint8_t i = 1; i < RECV_BUFFER_SIZE; i++) {
+      _recv_buffer[i - 1] = _recv_buffer[i];
+      if (_recv_buffer[i].code == 0) break;
+      _recv_buffer[i].code = 0;
+    }
+
+    return true;
+  }
+
   return false;
 }
 

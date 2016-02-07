@@ -4,11 +4,14 @@
 
 #include "RfSwitch_Brennenstuhl.h"
 
+#define RF_SWITCH_ON(g, s)  (((g & 0b11111) << 7) | ((s & 0b11111) << 2) | 0b01)
+#define RF_SWITCH_OFF(g, s) (((g & 0b11111) << 7) | ((s & 0b11111) << 2) | 0b10)
+
 RfSwitch_Brennenstuhl rfSwitch(D4, D3);
 
 void setup() {
   Serial.begin(115200); delay(100);
-  Serial.println(F("## RfSwitch_Brennenstuhl"));
+  Serial.println(); Serial.println(F("## RfSwitch_Brennenstuhl"));
 
   pinMode(13, OUTPUT); digitalWrite(13, LOW);
 
@@ -17,89 +20,33 @@ void setup() {
 
 
 void loop() {
-  static unsigned long _last_millis = 0;
+  unsigned int code, repeat;
 
-  static unsigned int _last_code = 0;
-  static unsigned int _last_code_repeat = 0;
-  static unsigned int _last_code_delay = 0;
-
-  unsigned int code;
-
-  if (rfSwitch.getReceivedValue(&code)) {
-    Serial.print(F("0b")); Serial.print(code, BIN); Serial.println();
+  if (rfSwitch.recv(&code, &repeat) && repeat > 1) {
+    Serial.print(F("0b")); Serial.print(code, BIN); Serial.write(' '); Serial.print(repeat, DEC); Serial.println();
 
     switch (code) {
+      case RF_SWITCH_ON( 0b10111, 0b10000):  { rfSwitch.send(RF_SWITCH_ON(0b11110, 0b00100)); } break;
+      case RF_SWITCH_OFF(0b10111, 0b10000): { rfSwitch.send(RF_SWITCH_OFF(0b11110, 0b00100)); } break;
+      
       case 0b101110001010:
       case 0b111100001010: {
         Serial.println(F("ON"));
-        rfSwitch.send(0b111100010010, 10, 1);
-        rfSwitch.send(0b111100100010, 10, 1);
-        rfSwitch.send(0b111101000010, 10, 0);
+        rfSwitch.send(0b111100010010);
+        rfSwitch.send(0b111100100010);
+        rfSwitch.send(0b111101000010);
       } break;
       
       case 0b101110001001:
       case 0b111100001001: {
         Serial.println(F("OFF"));
-        rfSwitch.send(0b111100010001, 10, 1);
-        rfSwitch.send(0b111100100001, 10, 1);
-        rfSwitch.send(0b111101000001, 10, 1);
+        rfSwitch.send(0b111100010001);
+        rfSwitch.send(0b111100100001);
+        rfSwitch.send(0b111101000001);
       } break;
     }
   }
 
-  /*--*
-  if (rfSwitch.getReceivedValue(&code)) {
-    // Serial.println(code, BIN);
-
-    if (code & 0b000001111100) {
-      if (_last_code != code) {
-        _last_code = code;
-        _last_code_repeat = 1;
-      } else {
-        _last_code_repeat++;
-      }
-    }
-    
-    _last_code_delay = 150;
-  }
-  //-*/
-
-  /*--*/
-  if (_last_millis != millis()) {
-    
-    if (_last_code_delay && --_last_code_delay == 0) {
-      Serial.print(F("0b")); Serial.print(_last_code, BIN); Serial.write(' '); Serial.println(_last_code_repeat, DEC);
-      
-      switch (_last_code) {
-        case 0b101110001010:
-        case 0b111100001010:
-        if (_last_code_repeat >= 1) {
-          Serial.println(F("ON"));
-          rfSwitch.send(0b111100010010, 10, 1);
-          rfSwitch.send(0b111100100010, 10, 1);
-          rfSwitch.send(0b111101000010, 10, 0);
-        } break;
-        
-        case 0b101110001001:
-        case 0b111100001001:
-        if (_last_code_repeat >= 1) {
-          Serial.println(F("OFF"));
-          rfSwitch.send(0b111100010001, 10, 1);
-          rfSwitch.send(0b111100100001, 10, 1);
-          rfSwitch.send(0b111101000001, 10, 1);
-        } break;
-      }
-
-      _last_code = 0;
-    }
-
-    _last_millis = millis();
-  }
-  //-*/
-
-  /*
-  */
-  
   rfSwitch.loop();
 }
 
