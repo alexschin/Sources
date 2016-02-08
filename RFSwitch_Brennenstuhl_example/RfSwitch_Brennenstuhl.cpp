@@ -263,7 +263,7 @@ void RfSwitch_Brennenstuhl::loop() {
         _last_recv_code_repeat += 1;
       }
     }
-    _last_recv_code_delay = 200;
+    _last_recv_code_delay = _recv_timeout;
     return;
   } 
   
@@ -291,7 +291,7 @@ void RfSwitch_Brennenstuhl::loop() {
 }
 
 
-bool RfSwitch_Brennenstuhl::send(unsigned int code, unsigned int repeat, unsigned int preDelay) {
+bool RfSwitch_Brennenstuhl::send(int code, int repeat, int pre_delay) {
   for (uint8_t i = 0; i < SEND_BUFFER_SIZE; i++) {
     struct SEND_BUFFER_ITEM* itm = &(_send_buffer[i]);
     
@@ -300,7 +300,7 @@ bool RfSwitch_Brennenstuhl::send(unsigned int code, unsigned int repeat, unsigne
     else if (itm->repeat == 0) {
       itm->code     = code;
       itm->repeat   = repeat;
-      itm->preDelay = preDelay;
+      itm->preDelay = pre_delay;
       return true;
     }
   }
@@ -309,10 +309,11 @@ bool RfSwitch_Brennenstuhl::send(unsigned int code, unsigned int repeat, unsigne
 }
 
 
-bool RfSwitch_Brennenstuhl::recv(unsigned int* code, unsigned int* repeat) {
+
+bool RfSwitch_Brennenstuhl::recv(int* code_value, int* code_repeat) {
   if (_recv_buffer[0].code != 0) {
-    *code = _recv_buffer[0].code;
-    if (repeat != NULL) *repeat = _recv_buffer[0].repeat;
+    *code_value = _recv_buffer[0].code;
+    if (code_repeat != NULL) *code_repeat = _recv_buffer[0].repeat;
 
     for (uint8_t i = 1; i < RECV_BUFFER_SIZE; i++) {
       _recv_buffer[i - 1] = _recv_buffer[i];
