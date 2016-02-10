@@ -6,12 +6,11 @@
 
 #if defined(ESP8266)
   #define PIN_SEND  D4
-  #define PIN_RECV  D3
+  #define PIN_RECV  D5
 #else
   #define PIN_SEND  4
   #define PIN_RECV  3
 #endif
-
 
 RfSwitch_Brennenstuhl rfSwitch(PIN_SEND, PIN_RECV);
 
@@ -24,9 +23,10 @@ void setup() {
   Serial.print(F("## PIN_RECV = ")); Serial.println(PIN_RECV, DEC);
 
   rfSwitch.begin();
-  // rfSwitch.setSendRepeat(5);
-  // rfSwitch.setSendPreDelay(25);
-  // rfSwitch.setRecvTimeout(250);
+  rfSwitch.setSendRepeat(5);
+  rfSwitch.setSendPreDelay(10);
+  rfSwitch.setRecvTimeout(200);
+  
   Serial.print(F("## rfSwitch.getSendRepeat()   = ")); Serial.println(rfSwitch.getSendRepeat(), DEC);
   Serial.print(F("## rfSwitch.getSendPreDelay() = ")); Serial.println(rfSwitch.getSendPreDelay(), DEC);
   Serial.print(F("## rfSwitch.getRecvTimeout()  = ")); Serial.println(rfSwitch.getRecvTimeout(), DEC);
@@ -36,9 +36,10 @@ void setup() {
 void loop() {
   int code, repeat;
 
-  if (rfSwitch.recv(&code, &repeat) && repeat > 1) {
+  if (rfSwitch.recv(&code, &repeat) && repeat >= 1) {
     Serial.print(F("## code = 0b")); Serial.print(code, BIN); Serial.print(F(", repeat = ")); Serial.print(repeat, DEC); Serial.println();
     Serial.print(F("## senderId = 0b")); Serial.print(rfSwitch.getRecvSenderId(code), BIN); Serial.print(F(", deviceId = 0b")); Serial.print(rfSwitch.getRecvDeviceId(code), BIN); Serial.print(F(", command = 0b")); Serial.print(rfSwitch.getRecvCommand(code), BIN); Serial.println();
+    Serial.print(F("## getRecvPulseWidthUS = ")); Serial.println(rfSwitch.getRecvPulseWidthUS(), DEC);
 
     switch (code) {
       case RfSwitch_Brennenstuhl_CODE(0b10111, 0b10000, RfSwitch_Brennenstuhl::COMMAND_ON): {

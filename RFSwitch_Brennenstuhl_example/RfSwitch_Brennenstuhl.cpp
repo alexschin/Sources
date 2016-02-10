@@ -66,6 +66,9 @@ static struct RECV_BUFFER_ITEM {
 
 static volatile uint16_t _rcv_newcode = 0;
 static volatile uint8_t  _rcv_state   = 0;
+static volatile int      _rcv_pulsewidthUS = 0;
+
+int RfSwitch_Brennenstuhl::getRecvPulseWidthUS() { return _rcv_pulsewidthUS; };
 
 static void rcv_handleInterrupt() {
   static volatile uint32_t lastMicros = 0;
@@ -75,8 +78,12 @@ static void rcv_handleInterrupt() {
     uint32_t duration = nowMicros - lastMicros;
 
     if (duration > 5000) {
-      if (isPulseShort(timings_pop())) {
+      int pulsewidth = timings_pop();
+      if (isPulseShort(pulsewidth)) {
+        _rcv_pulsewidthUS = pulsewidth;
         _rcv_state |= RECV_STATE_NEWCODE;
+      } else {
+        timings_push(0);
       }
     } else {
       timings_push(duration);

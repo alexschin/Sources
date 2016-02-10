@@ -46,11 +46,12 @@ class RfSwitch_Brennenstuhl {
 
   public:
     bool recv(int* code_value, int* code_repeat = NULL);
-    inline int getRecvSenderId(int code_value) const __attribute__((always_inline)) { return ((code_value >> 7) & 0b11111); };
+    inline int getRecvSenderId(int code_value) __attribute__((always_inline)) { return ((code_value >> 7) & 0b11111); };
     inline int getRecvDeviceId(int code_value) __attribute__((always_inline)) { return ((code_value >> 2) & 0b11111); };
     inline int getRecvCommand(int code_value)  __attribute__((always_inline)) { return (code_value & 0b11); };
 
-
+    int getRecvPulseWidthUS();
+    
   public:
     int _recv_timeout = 150;
     inline int getRecvTimeout() const __attribute__((always_inline))           { return _recv_timeout; };
