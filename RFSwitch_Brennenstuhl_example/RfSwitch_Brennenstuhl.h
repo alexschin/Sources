@@ -1,3 +1,26 @@
+/*
+  RF-Switch Brennenstuhl RCS 1000 N
+  Arduino library for remote control Brennenstuhl switches.
+  
+  Copyright (c) 2016 Alexander Schindowski.  All right reserved.
+  
+  Project home: http://github.com/alexschin/Sources
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
 #if not defined(__RfSwitch_Brennenstuhl_h__)
 #define __RfSwitch_Brennenstuhl_h__
 
@@ -35,7 +58,7 @@ class RfSwitch_Brennenstuhl {
 
 
   public:
-    int _send_repeat    = 5; // *** resend 5 times ***
+    int _send_repeat    = 6; // *** resend 5 times ***
     inline int getSendRepeat() const __attribute__((always_inline)) { return _send_repeat; };
     inline int setSendRepeat(int repeat) __attribute__((always_inline)) { _send_repeat = repeat; };
     
@@ -53,7 +76,7 @@ class RfSwitch_Brennenstuhl {
     int getRecvPulseWidthUS();
     
   public:
-    int _recv_timeout = 150;
+    int _recv_timeout = 200;
     inline int getRecvTimeout() const __attribute__((always_inline))           { return _recv_timeout; };
     inline int setRecvTimeout(int recv_timeout) __attribute__((always_inline)) { _recv_timeout = recv_timeout; };
 
